@@ -1,0 +1,51 @@
+version: '3'
+
+services:
+  webserver:
+    image: nginx:alpine
+    container_name: osdeni_nginx
+    ports:
+      - "8080:80"
+    volumes:
+    - ./nginx/:/etc/nginx/conf.d
+    depends_on:
+      - app
+    networks:
+      - osdeni-app-node
+
+  app:
+    build: 
+      context: ./nodejs
+    container_name: osdeni_app_node
+    entrypoint: dockerize -wait tcp://db:3306 -timeout 20s docker-entrypoint.sh
+    command: sh -c "cd /usr/src/app/ && npm install && nodejs index.js"
+    networks:
+      - osdeni-app-node
+    volumes:
+      - './nodejs:/usr/src/app'
+    tty: true
+    ports: 
+      - "3000:3000"
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    command: --innodb-use-native-aio=0
+    container_name: osdeni_db
+    restart: always
+    tty: true
+    volumes:
+      - "./mysql:/var/lib/mysql"
+    environment:
+      - MYSQL_DATABASE=nodedb
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - osdeni-app-node
+
+networks:
+  osdeni-app-node:
+    driver: bridge
+
+volumes:
+  db:
